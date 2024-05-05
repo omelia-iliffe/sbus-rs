@@ -1,0 +1,13 @@
+[package]
+name = "sbus-rs"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+heapless = { version = "0.8.0" }
+embedded-io = { version = "0.6.1", optional = true }
+
+[features]
+embedded-io = ["dep:embedded-io"]
+std = []
+default = ["embedded-io"]

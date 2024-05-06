@@ -1,11 +1,14 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-
-#[cfg(feature = "embedded-io")]
-use embedded_io::Read;
-use heapless::Deque;
 #[cfg(feature = "std")]
-use std::io::Read;
+use std::io as io;
+#[cfg(feature = "embedded-io")]
+use embedded_io as io;
+use heapless::Deque;
+use io::Read;
+
+#[cfg(test)]
+mod tests;
 
 // Important bytes for correctness checks
 const FLAG_MASK: u8 = 0b11110000;
@@ -138,82 +141,3 @@ fn is_flag_set(flag_byte: u8, shift_by: u8) -> bool {
     (flag_byte >> shift_by) & 1 == 1
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    const TEST_PACKET: [u8; 25] = [
-        0x0F, // HEAD_BYTE
-        (1024 & 0x07FF) as u8,
-        (((1024 & 0x07FF) >> 8) | ((1024 & 0x07FF) << 3)) as u8,
-        (((1024 & 0x07FF) >> 5) | ((1024 & 0x07FF) << 6)) as u8,
-        ((1024 & 0x07FF) >> 2) as u8,
-        (((1024 & 0x07FF) >> 10) | ((1024 & 0x07FF) << 1)) as u8,
-        (((1024 & 0x07FF) >> 7) | ((1024 & 0x07FF) << 4)) as u8,
-        ((1024 & 0x07FF) >> 4) as u8,
-        ((1024 & 0x07FF) << 2) as u8,
-        (((1024 & 0x07FF) >> 8) | ((1024 & 0x07FF) << 5)) as u8,
-        ((1024 & 0x07FF) >> 1) as u8,
-        (((1024 & 0x07FF) >> 9) | ((1024 & 0x07FF) << 6)) as u8,
-        ((1024 & 0x07FF) >> 3) as u8,
-        (((1024 & 0x07FF) >> 10) | ((1024 & 0x07FF) << 1)) as u8,
-        (((1024 & 0x07FF) >> 7) | ((1024 & 0x07FF) << 4)) as u8,
-        ((1024 & 0x07FF) >> 4) as u8,
-        ((1024 & 0x07FF) << 2) as u8,
-        (((1024 & 0x07FF) >> 8) | ((1024 & 0x07FF) << 5)) as u8,
-        ((1024 & 0x07FF) >> 1) as u8,
-        (((1024 & 0x07FF) >> 9) | ((1024 & 0x07FF) << 6)) as u8,
-        ((1024 & 0x07FF) >> 3) as u8,
-        (((1024 & 0x07FF) >> 10) | ((1024 & 0x07FF) << 1)) as u8,
-        (((1024 & 0x07FF) >> 7) | ((1024 & 0x07FF) << 4)) as u8,
-        0x00, // FLAGS_BYTE, no flags set
-        0x00, // FOOT_BYTE
-    ];
-
-    /// Test the parsing of a completely valid SBUS packet.
-    #[test]
-    fn test_valid_sbus_packet() {
-        let mut parser = SBusPacketParser::new();
-        // Example SBUS packet - This needs to be a valid SBUS frame
-        let test_bytes: [u8; 25] = TEST_PACKET;
-        parser.push_bytes(&test_bytes);
-        let packet = parser.try_parse();
-        assert!(packet.is_some());
-        // Further asserts to validate channel data, flags, etc.
-    }
-
-    /// Test handling of incorrect head byte.
-    #[test]
-    fn test_incorrect_head_byte() {
-        let mut parser = SBusPacketParser::new();
-        let mut test_bytes: [u8; 25] = TEST_PACKET;
-        test_bytes[0] = 0x00; // Incorrect head byte
-        parser.push_bytes(&test_bytes);
-        assert!(parser.try_parse().is_none());
-    }
-
-    /// Test the buffer exceeding the maximum packet size.
-    #[test]
-    fn test_exceed_max_packet_size() {
-        let mut parser = SBusPacketParser::new();
-        // Push more bytes than MAX_PACKET_SIZE
-        for _ in 0..(MAX_PACKET_SIZE + 10) {
-            parser.push_byte(0x55); // Arbitrary non-protocol data
-        }
-        assert!(parser.try_parse().is_none());
-    }
-
-    /// Test the correct processing of consecutive valid packets.
-    #[test]
-    fn test_consecutive_valid_packets() {
-        let mut parser = SBusPacketParser::new();
-        let valid_packet: [u8; 25] = TEST_PACKET;
-        // Simulate receiving two valid packets back-to-back
-        parser.push_bytes(&valid_packet);
-        parser.push_bytes(&valid_packet);
-        let first_packet = parser.try_parse();
-        let second_packet = parser.try_parse();
-        assert!(first_packet.is_some());
-        assert!(second_packet.is_some());
-    }
-}

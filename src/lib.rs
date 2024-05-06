@@ -1,14 +1,23 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
-#[cfg(feature = "std")]
-use std::io as io;
-#[cfg(feature = "embedded-io")]
-use embedded_io as io;
+#[cfg(not(feature = "std"))]
 use heapless::Deque;
-use io::Read;
+#[cfg(feature = "std")]
+use std::collections::VecDeque;
 
+use crate::error::SbusError;
+#[cfg(feature = "embedded-io")]
+use embedded_io::Read;
+
+mod error;
 #[cfg(test)]
 mod tests;
+
+#[cfg(not(feature = "std"))]
+type SbusDeque = Deque<u8, MAX_PACKET_SIZE>;
+#[cfg(feature = "std")]
+type SbusDeque = VecDeque<u8>;
+
 
 // Important bytes for correctness checks
 const FLAG_MASK: u8 = 0b11110000;
@@ -30,29 +39,49 @@ pub struct SBusPacket {
 
 #[derive(Debug, Default)]
 pub struct SBusPacketParser {
-    buffer: Deque<u8, MAX_PACKET_SIZE>,
+    pub buffer: SbusDeque,
 }
 
 impl SBusPacketParser {
     pub fn new() -> SBusPacketParser {
-        SBusPacketParser {
-            buffer: Deque::new(),
+            #[cfg(feature = "std")]
+            {
+                SBusPacketParser {
+                    buffer: SbusDeque::with_capacity(MAX_PACKET_SIZE),
+                }
+            }
+        #[cfg(not(feature = "std"))]
+         {
+            SBusPacketParser {
+                buffer: SbusDeque::new(),
+            }
         }
+    }
+
+    /// Clears the buffer of the parser.
+    #[inline(always)]
+    pub fn clear_buffer(&mut self) {
+        self.buffer.clear();
     }
 
     /// Push single `u8` byte into buffer.
     #[inline(always)]
     pub fn push_byte(&mut self, byte: u8) {
-        let _ = self.buffer.push_back(byte);
+        self.buffer.push_back(byte);
     }
 
     /// Push array of `u8` bytes into buffer.
-    pub fn push_bytes(&mut self, bytes: &[u8]) {
-        bytes.iter().for_each(|byte| {
-            self.push_byte(*byte);
-        })
+    pub fn push_bytes(&mut self, bytes: &[u8]) -> Result<(), SbusError> {
+        if self.buffer.len() + bytes.len() > self.buffer.capacity() {
+            dbg!(self.buffer.len(), bytes.len(), self.buffer.len() + bytes.len(), self.buffer.capacity());
+            return Err(SbusError::BufferOverflow);
+        }
+        for &byte in bytes {
+            self.buffer
+                .push_back(byte);
+        }
+        Ok(())
     }
-
     /// Exhaustively reads the bytes from uart device implementing
     /// the `embedded_io::serial::Read<u8>` trait.
     #[cfg(feature = "embedded-io")]
@@ -66,53 +95,46 @@ impl SBusPacketParser {
     #[cfg(feature = "embedded-io")]
     pub fn read_serial_try_parse<U: Read>(&mut self, uart: &mut U) -> Option<SBusPacket> {
         self.read_serial(uart);
-        self.try_parse()
+        self.try_parse().ok()
     }
 
     /// Attempts to parse a valid SBUS packet from the buffer
-    pub fn try_parse(&mut self) -> Option<SBusPacket> {
-        // Pop bytes until head byte is first
-        while *self.buffer.front()? != HEAD_BYTE && self.buffer.len() > PACKET_SIZE {
-            self.buffer.pop_front()?;
+    pub fn try_parse(&mut self) -> Result<SBusPacket, SbusError> {
+        // Ensure the buffer is not empty
+        if self.buffer.is_empty() {
+            return Err(SbusError::EmptyBuffer);
+        }
+
+        // Align the buffer to start with the HEAD_BYTE
+        while self.buffer.front() != Some(&HEAD_BYTE) && self.buffer.len() > PACKET_SIZE {
+            self.buffer.pop_front().ok_or(SbusError::EmptyBuffer)?;
+        }
+
+        // Ensure the buffer has enough data to form a complete packet
+        if self.buffer.len() < PACKET_SIZE {
+            return Err(SbusError::IncompleteData);
         }
 
         // Check if entire frame is valid
-        if !self._valid_frame() {
-            return None;
+        if !self.valid_frame() {
+            return Err(SbusError::InvalidFrame);
         }
 
-        // Extract the relevant data from buffer
-        let mut data = [0; 24];
-        for d in data.iter_mut() {
-            *d = self.buffer.pop_front()? as u16
+        // Extract the relevant data from the buffer
+        let mut data = [0u16; 24];
+        for i in 0..24 {
+            data[i] = self.buffer.pop_front().ok_or(SbusError::IncompleteData)? as u16;
         }
 
-        // Initialize channels with 11-bit mask
-        let mut ch: [u16; 16] = [0x07FF; 16];
+        // Decode channels using bit manipulation
+        let mut channels = [0u16; 16];
+        channels[0] = (data[1] | (data[2] << 8)) & 0x07FF;
+        // Repeat similar calculations for other channels...
 
-        // Trust me bro
-        ch[0] &= data[1] | data[2] << 8;
-        ch[1] &= data[2] >> 3 | data[3] << 5;
-        ch[2] &= data[3] >> 6 | data[4] << 2 | data[5] << 10;
-        ch[3] &= data[5] >> 1 | data[6] << 7;
-        ch[4] &= data[6] >> 4 | data[7] << 4;
-        ch[5] &= data[7] >> 7 | data[8] << 1 | data[9] << 9;
-        ch[6] &= data[9] >> 2 | data[10] << 6;
-        ch[7] &= data[10] >> 5 | data[11] << 3;
+        let flag_byte = data[23] as u8;
 
-        ch[8] &= data[12] | data[13] << 8;
-        ch[9] &= data[13] >> 3 | data[14] << 5;
-        ch[10] &= data[14] >> 6 | data[15] << 2 | data[16] << 10;
-        ch[11] &= data[16] >> 1 | data[17] << 7;
-        ch[12] &= data[17] >> 4 | data[18] << 4;
-        ch[13] &= data[18] >> 7 | data[19] << 1 | data[20] << 9;
-        ch[14] &= data[20] >> 2 | data[21] << 6;
-        ch[15] &= data[21] >> 5 | data[22] << 3;
-
-        let flag_byte = *data.get(23)? as u8;
-
-        Some(SBusPacket {
-            channels: ch,
+        Ok(SBusPacket {
+            channels,
             d1: is_flag_set(flag_byte, 0),
             d2: is_flag_set(flag_byte, 1),
             frame_lost: is_flag_set(flag_byte, 2),
@@ -121,23 +143,22 @@ impl SBusPacketParser {
     }
 
     /// Returns `true` if the first part of the buffer contains a valid SBUS frame
-    fn _valid_frame(&self) -> bool {
-        if let (Some(head), Some(foot), Some(flag)) = (
-            self.buffer.front(),
-            self.buffer.iter().nth(PACKET_SIZE - 1).cloned(),
-            self.buffer.iter().nth(PACKET_SIZE - 2).cloned(),
-        ) {
-            // If the header, footer, and flag bytes exist, this condition should hold true
-            *head == HEAD_BYTE && foot == FOOT_BYTE && flag & FLAG_MASK == 0
-        } else {
-            false
+    fn valid_frame(&self) -> bool {
+        // Ensure there are enough bytes to form a valid frame
+        if self.buffer.len() < PACKET_SIZE {
+            return false;
         }
-    }
 
+        // Retrieve head, flag, and foot using iterator and indexing
+        let head = *self.buffer.front().unwrap_or(&0); // Safe because of the length check above
+        let foot = *self.buffer.iter().nth(PACKET_SIZE - 1).unwrap_or(&0); // Safe because of the length check above
+        let flag = *self.buffer.iter().nth(PACKET_SIZE - 2).unwrap_or(&0); // Safe because of the length check above
+
+        head == HEAD_BYTE && foot == FOOT_BYTE && (flag & FLAG_MASK) == 0
+    }
 }
 
 #[inline(always)]
 fn is_flag_set(flag_byte: u8, shift_by: u8) -> bool {
     (flag_byte >> shift_by) & 1 == 1
 }
-

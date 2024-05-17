@@ -6,16 +6,15 @@ edition = "2021"
 [dependencies]
 heapless = { version = "0.8.0" }
 embedded-io = { version = "0.6.1", optional = true }
+embedded-io-async = { version = "0.6.1", optional = true }
 
 [dev-dependencies]
+tokio = { version = "1.37.0", features = ["full"] }
+embedded-io-adapters = { version = "0.6.1" }
 criterion = "0.5"
 hex-literal = "0.4"
 
 [features]
-embedded-io = ["dep:embedded-io"]
-std = []
+blocking = ["dep:embedded-io", "embedded-io-adapters/std"]
+non-blocking = ["dep:embedded-io-async", "embedded-io-adapters/tokio-1"]
 default = []
-
-[[bench]]
-name = "benchmarks"
-harness = false

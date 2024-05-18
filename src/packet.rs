@@ -1,5 +1,5 @@
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct SbusPacket {
     pub channels: [u16; 16],
     pub d1: bool,

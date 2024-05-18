@@ -1,10 +1,32 @@
-use crate::{
-    channels_parsing,
-    error::SbusError,
-    packet::SbusPacket,
-    parser::{SBUS_FOOTER, SBUS_FRAME_LENGTH, SBUS_HEADER},
-};
+use crate::{error::SbusError, packet::SbusPacket, parser::SBUS_FRAME_LENGTH, Parser};
 use embedded_io::Read;
+
+pub struct Blocking {}
+impl super::Mode for Blocking {}
+impl super::Sealed for Blocking {}
+
+impl<R, M> Parser<R, M>
+where
+    M: super::Mode,
+{
+    pub fn new_blocking<R1: Read>(reader: R1) -> Parser<R1, Blocking> {
+        Parser {
+            reader,
+            _mode: Default::default(),
+        }
+    }
+}
+
+impl<R: Read> Parser<R, Blocking> {
+    pub fn read_frame(&mut self) -> Result<SbusPacket, SbusError> {
+        let mut buffer = [0u8; SBUS_FRAME_LENGTH];
+        self.reader
+            .read_exact(&mut buffer)
+            .map_err(|_| SbusError::ReadError)?;
+
+        SbusPacket::from_array(&buffer)
+    }
+}
 
 pub struct SbusParser<R>
 where
@@ -13,7 +35,7 @@ where
     reader: R,
 }
 
-impl<'a, R> SbusParser<R>
+impl<R> SbusParser<R>
 where
     R: Read,
 {
@@ -27,24 +49,7 @@ where
             .read_exact(&mut buffer)
             .map_err(|_| SbusError::ReadError)?;
 
-        // Check header and footer
-        if buffer[0] != SBUS_HEADER || buffer[SBUS_FRAME_LENGTH - 1] != SBUS_FOOTER {
-            return Err(SbusError::InvalidHeader);
-        }
-
-        // Parse channels and flags
-        let channels = channels_parsing(&buffer);
-
-        let flag_byte = buffer[23];
-        let packet = SbusPacket {
-            channels,
-            d1: (flag_byte & (1 << 0)) != 0,
-            d2: (flag_byte & (1 << 1)) != 0,
-            frame_lost: (flag_byte & (1 << 2)) != 0,
-            failsafe: (flag_byte & (1 << 3)) != 0,
-        };
-
-        Ok(packet)
+        SbusPacket::from_array(&buffer)
     }
 }
 
@@ -98,16 +103,14 @@ mod tests {
         let cursor = Cursor::new(data);
         let mut parser = SbusParser::new(FromStd::new(cursor));
 
-        let result = parser.read_frame();
-        assert!(result.is_ok());
+        let packet = parser.read_frame().expect("Should be a valid frame");
 
-        let packet = result.unwrap();
         assert_eq!(packet.channels[0], 0);
         assert_eq!(packet.channels[15], 0);
-        assert!(!packet.d1);
-        assert!(!packet.d2);
-        assert!(!packet.frame_lost);
-        assert!(!packet.failsafe);
+        assert!(!packet.flags.d1);
+        assert!(!packet.flags.d2);
+        assert!(!packet.flags.frame_lost);
+        assert!(!packet.flags.failsafe);
     }
 
     #[test]
@@ -120,7 +123,7 @@ mod tests {
         let mut parser = SbusParser::new(FromStd::new(cursor));
 
         let result = parser.read_frame();
-        assert!(matches!(result, Err(SbusError::InvalidHeader)));
+        assert!(matches!(result, Err(SbusError::InvalidHeader(0x00))));
     }
 
     #[test]
@@ -132,7 +135,7 @@ mod tests {
         let mut parser = SbusParser::new(FromStd::new(cursor));
 
         let result = parser.read_frame();
-        assert!(matches!(result, Err(SbusError::InvalidHeader)));
+        assert!(matches!(result, Err(SbusError::InvalidFooter(0xFF))));
     }
 
     #[test]
@@ -146,10 +149,10 @@ mod tests {
         let result = parser.read_frame();
         assert!(result.is_ok());
         let packet = result.unwrap();
-        assert!(packet.d1);
-        assert!(packet.d2);
-        assert!(packet.frame_lost);
-        assert!(packet.failsafe);
+        assert!(packet.flags.d1);
+        assert!(packet.flags.d2);
+        assert!(packet.flags.frame_lost);
+        assert!(packet.flags.failsafe);
     }
 
     #[test]

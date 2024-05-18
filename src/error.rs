@@ -1,5 +1,4 @@
-
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum SbusError {
     /// Error reading from the reader
     ReadError,

@@ -3,6 +3,8 @@
 pub enum SbusError {
     /// Error reading from the reader
     ReadError,
-    /// Invalid header or footer
+    /// Invalid header
     InvalidHeader,
+    /// Invalid footer
+    InvalidFooter,
 }

@@ -1,4 +1,3 @@
-
 #[derive(Debug)]
 pub struct SbusPacket {
     pub channels: [u16; 16],

@@ -1,5 +1,7 @@
 #[cfg(feature = "blocking")]
 pub mod blocking;
+
+#[cfg(feature = "non-blocking")]
 pub mod nonblocking;
 
 const SBUS_HEADER: u8 = 0x0F;

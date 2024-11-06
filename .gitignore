@@ -1,3 +1,5 @@
 /target
 /.idea/
 /mutants.out/
+!proptest-regressions/
+!proptest-regressions/**

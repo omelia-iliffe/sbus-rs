@@ -6,7 +6,6 @@ edition = "2021"
 rust-version = "1.82"
 
 [dependencies]
-heapless = { version = "0.8" }
 embedded-io = { version = "0.6", optional = true }
 embedded-io-async = { version = "0.6", optional = true }
 
@@ -14,10 +13,16 @@ embedded-io-async = { version = "0.6", optional = true }
 tokio = { version = "1", features = ["full"] }
 embedded-io-adapters = { version = "0.6" }
 criterion = "0.5"
-hex-literal = "0.4"
+arbitrary = { version = "1.4.0", features = ["derive"] }
+libfuzzer-sys = "0.4"
+proptest = "1.5"
 
 [features]
 blocking = ["dep:embedded-io", "embedded-io-adapters/std"]
 async = ["dep:embedded-io-async", "embedded-io-adapters/tokio-1"]
 default = ["blocking"]
 std = []
+
+[[bench]]
+name = "sbus_benches"
+harness = false

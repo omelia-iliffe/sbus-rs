@@ -8,6 +8,9 @@ mod error;
 mod packet;
 mod parser;
 
+#[cfg(test)]
+mod tests;
+
 #[inline(always)]
 pub(crate) const fn channels_parsing(buffer: &[u8; 25]) -> [u16; 16] {
     [

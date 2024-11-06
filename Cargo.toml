@@ -6,17 +6,18 @@ edition = "2021"
 rust-version = "1.82"
 
 [dependencies]
-heapless = { version = "0.8.0" }
-embedded-io = { version = "0.6.1", optional = true }
-embedded-io-async = { version = "0.6.1", optional = true }
+heapless = { version = "0.8" }
+embedded-io = { version = "0.6", optional = true }
+embedded-io-async = { version = "0.6", optional = true }
 
 [dev-dependencies]
-tokio = { version = "1.37.0", features = ["full"] }
-embedded-io-adapters = { version = "0.6.1" }
+tokio = { version = "1", features = ["full"] }
+embedded-io-adapters = { version = "0.6" }
 criterion = "0.5"
 hex-literal = "0.4"
 
 [features]
 blocking = ["dep:embedded-io", "embedded-io-adapters/std"]
-non-blocking = ["dep:embedded-io-async", "embedded-io-adapters/tokio-1"]
+async = ["dep:embedded-io-async", "embedded-io-adapters/tokio-1"]
 default = ["blocking"]
+std = []

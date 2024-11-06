@@ -1,17 +1,12 @@
-#![cfg_attr(not(test), no_std)]
+#![cfg_attr(all(not(test), not(feature = "std")), no_std)]
 
-#[cfg(not(any(feature = "blocking", feature = "non-blocking")))]
-compile_error!("At least one of the blocking or non-blocking features must be enabled");
+pub use error::*;
+pub use packet::*;
+pub use parser::*;
 
-#[cfg(feature = "blocking")]
-pub use parser::blocking;
-#[cfg(feature = "non-blocking")]
-pub use parser::nonblocking;
-
-pub mod error;
-
-pub mod packet;
-pub mod parser;
+mod error;
+mod packet;
+mod parser;
 
 #[inline(always)]
 pub(crate) const fn channels_parsing(buffer: &[u8; 25]) -> [u16; 16] {

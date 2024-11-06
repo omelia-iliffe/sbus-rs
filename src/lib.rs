@@ -33,3 +33,12 @@ pub(crate) const fn channels_parsing(buffer: &[u8; 25]) -> [u16; 16] {
         (((buffer[21] as u16) >> 5) | ((buffer[22] as u16) << 3)) & 0x07FF,
     ]
 }
+
+#[inline(always)]
+pub fn available_bytes(write_pos: usize, read_pos: usize, buffer_len: usize) -> usize {
+    if write_pos >= read_pos {
+        write_pos - read_pos
+    } else {
+        buffer_len - (read_pos - write_pos)
+    }
+}

@@ -18,6 +18,6 @@ hex-literal = "0.4"
 
 [features]
 blocking = ["dep:embedded-io", "embedded-io-adapters/std"]
-non-blocking = ["dep:embedded-io-async", "embedded-io-adapters/tokio-1"]
+async = ["dep:embedded-io-async", "embedded-io-adapters/tokio-1"]
 default = ["blocking"]
 std = []

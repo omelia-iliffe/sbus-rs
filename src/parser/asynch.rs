@@ -39,9 +39,6 @@ where
     R: Read,
 {
     reader: R,
-    circular_buffer: [u8; 256],
-    write_pos: usize,
-    read_pos: usize,
 }
 
 impl<R> SbusParserAsync<R>
@@ -49,90 +46,13 @@ where
     R: Read,
 {
     pub fn new(reader: R) -> Self {
-        Self {
-            reader,
-            circular_buffer: [0u8; 256],
-            write_pos: 0,
-            read_pos: 0,
-        }
+        Self { reader }
     }
 
-    /// Read the next valid SBUS frame from the reader
-    ///
-    /// This function reads data from the reader and parses it into an SBUS packet.
-    /// It will return an error if the reader encounters an error and will otherwise loop until a valid SBUS packet is found.
-    pub async fn read_next_valid_frame(&mut self) -> Result<SbusPacket, SbusError> {
-        loop {
-            // Read data into the circular buffer
-            match self
-                .reader
-                .read(&mut self.circular_buffer[self.write_pos..self.write_pos + 1])
-                .await
-            {
-                Ok(_) => {
-                    self.write_pos = (self.write_pos + 1) % self.circular_buffer.len();
-                }
-                Err(_) => {
-                    return Err(SbusError::ReadError);
-                }
-            }
-
-            // Check if we have at least 25 bytes to process
-            while available_bytes(self.write_pos, self.read_pos, self.circular_buffer.len())
-                >= SBUS_FRAME_LENGTH
-            {
-                // Look for the start of an SBUS packet (0x0F)
-                if self.circular_buffer[self.read_pos] == SBUS_HEADER {
-                    // Copy 25 bytes to the packet buffer
-                    let mut packet = [0u8; SBUS_FRAME_LENGTH];
-                    for i in 0..SBUS_FRAME_LENGTH {
-                        packet[i] =
-                            self.circular_buffer[(self.read_pos + i) % self.circular_buffer.len()];
-                    }
-
-                    let end_byte = packet[SBUS_FRAME_LENGTH - 1];
-
-                    // Verify the end byte
-                    if end_byte == SBUS_FOOTER {
-                        // Parse the SBUS packet
-                        let channels = channels_parsing(&packet);
-
-                        let flag_byte = packet[23];
-
-                        let sbus_packet = SbusPacket {
-                            channels,
-                            d1: (flag_byte & (1 << 0)) != 0,
-                            d2: (flag_byte & (1 << 1)) != 0,
-                            frame_lost: (flag_byte & (1 << 2)) != 0,
-                            failsafe: (flag_byte & (1 << 3)) != 0,
-                        };
-
-                        // Move read position forward by 25 bytes
-                        self.read_pos =
-                            (self.read_pos + SBUS_FRAME_LENGTH) % self.circular_buffer.len();
-
-                        return Ok(sbus_packet);
-                    } else {
-                        // Move read position forward by one byte if the end byte is incorrect
-                        self.read_pos = (self.read_pos + 1) % self.circular_buffer.len();
-                    }
-                } else {
-                    // Move read position forward by one byte if the start byte is incorrect
-                    self.read_pos = (self.read_pos + 1) % self.circular_buffer.len();
-                }
-            }
-        }
-    }
-
-    /// Read a single SBUS frame from the reader
-    ///
-    /// This function reads data from the reader and parses it into an SBUS packet.
-    /// It expects the first byte to be the SBUS header and will return an error if the frame is invalid.
-    pub async fn read_single_frame(&mut self) -> Result<SbusPacket, SbusError> {
-        // Read 25 bytes into the packet buffer
-        let mut packet = [0u8; SBUS_FRAME_LENGTH];
+    pub async fn read_frame(&mut self) -> Result<SbusPacket, SbusError> {
+        let mut buffer = [0u8; SBUS_FRAME_LENGTH];
         self.reader
-            .read_exact(&mut packet)
+            .read_exact(&mut buffer)
             .await
             .map_err(|_| SbusError::ReadError)?;
 
@@ -191,7 +111,7 @@ mod tests {
         let cursor = Cursor::new(data);
         let mut parser = SbusParserAsync::new(FromTokio::new(cursor));
 
-        let packet = parser.read_next_valid_frame().await.expect("Should be a valid frame");
+        let packet = parser.read_frame().await.expect("Should be a valid frame");
 
         assert_eq!(packet.channels[0], 0);
         assert_eq!(packet.channels[15], 0);
@@ -210,8 +130,8 @@ mod tests {
         let cursor = Cursor::new(data);
         let mut parser = SbusParserAsync::new(FromTokio::new(cursor));
 
-        let result = parser.read_single_frame().await;
-        assert!(matches!(result, Err(SbusError::InvalidFooter)));
+        let result = parser.read_frame().await;
+        assert!(matches!(result, Err(SbusError::InvalidFooter(0x50))));
     }
 
     #[tokio::test]
@@ -223,7 +143,7 @@ mod tests {
         let cursor = Cursor::new(data);
         let mut parser = SbusParserAsync::new(FromTokio::new(cursor));
 
-        let result = parser.read_single_frame().await;
+        let result = parser.read_frame().await;
         assert!(matches!(result, Err(SbusError::InvalidHeader(0x00))));
     }
 }

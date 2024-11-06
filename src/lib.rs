@@ -1,5 +1,8 @@
 #![cfg_attr(all(not(test), not(feature = "std")), no_std)]
 
+#[cfg(not(any(feature = "blocking", feature = "async")))]
+compile_error!("At least one of the following features must be enabled: blocking, non-blocking");
+
 pub use error::*;
 pub use packet::*;
 pub use parser::*;

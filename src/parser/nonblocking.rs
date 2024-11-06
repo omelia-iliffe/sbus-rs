@@ -1,13 +1,13 @@
 use embedded_io_async::Read;
 
-use crate::{available_bytes, channels_parsing};
 use crate::error::SbusError;
 use crate::packet::SbusPacket;
 use crate::parser::{SBUS_FOOTER, SBUS_FRAME_LENGTH, SBUS_HEADER};
+use crate::{available_bytes, channels_parsing};
 
 pub struct SbusParserAsync<R>
-    where
-        R: Read,
+where
+    R: Read,
 {
     reader: R,
     circular_buffer: [u8; 256],
@@ -16,8 +16,8 @@ pub struct SbusParserAsync<R>
 }
 
 impl<R> SbusParserAsync<R>
-    where
-        R: Read,
+where
+    R: Read,
 {
     pub fn new(reader: R) -> Self {
         Self {
@@ -35,7 +35,11 @@ impl<R> SbusParserAsync<R>
     pub async fn read_next_valid_frame(&mut self) -> Result<SbusPacket, SbusError> {
         loop {
             // Read data into the circular buffer
-            match self.reader.read(&mut self.circular_buffer[self.write_pos..self.write_pos + 1]).await {
+            match self
+                .reader
+                .read(&mut self.circular_buffer[self.write_pos..self.write_pos + 1])
+                .await
+            {
                 Ok(_) => {
                     self.write_pos = (self.write_pos + 1) % self.circular_buffer.len();
                 }
@@ -45,13 +49,16 @@ impl<R> SbusParserAsync<R>
             }
 
             // Check if we have at least 25 bytes to process
-            while available_bytes(self.write_pos, self.read_pos, self.circular_buffer.len()) >= SBUS_FRAME_LENGTH {
+            while available_bytes(self.write_pos, self.read_pos, self.circular_buffer.len())
+                >= SBUS_FRAME_LENGTH
+            {
                 // Look for the start of an SBUS packet (0x0F)
                 if self.circular_buffer[self.read_pos] == SBUS_HEADER {
                     // Copy 25 bytes to the packet buffer
                     let mut packet = [0u8; SBUS_FRAME_LENGTH];
                     for i in 0..SBUS_FRAME_LENGTH {
-                        packet[i] = self.circular_buffer[(self.read_pos + i) % self.circular_buffer.len()];
+                        packet[i] =
+                            self.circular_buffer[(self.read_pos + i) % self.circular_buffer.len()];
                     }
 
                     let end_byte = packet[SBUS_FRAME_LENGTH - 1];
@@ -72,7 +79,8 @@ impl<R> SbusParserAsync<R>
                         };
 
                         // Move read position forward by 25 bytes
-                        self.read_pos = (self.read_pos + SBUS_FRAME_LENGTH) % self.circular_buffer.len();
+                        self.read_pos =
+                            (self.read_pos + SBUS_FRAME_LENGTH) % self.circular_buffer.len();
 
                         return Ok(sbus_packet);
                     } else {
@@ -94,7 +102,10 @@ impl<R> SbusParserAsync<R>
     pub async fn read_single_frame(&mut self) -> Result<SbusPacket, SbusError> {
         // Read 25 bytes into the packet buffer
         let mut packet = [0u8; SBUS_FRAME_LENGTH];
-        self.reader.read_exact(&mut packet).await.map_err(|_| SbusError::ReadError)?;
+        self.reader
+            .read_exact(&mut packet)
+            .await
+            .map_err(|_| SbusError::ReadError)?;
 
         // Check header and footer
         if packet[0] != SBUS_HEADER {
@@ -126,9 +137,9 @@ impl<R> SbusParserAsync<R>
 mod tests {
     use std::io::Cursor;
 
-    use embedded_io_adapters::tokio_1::FromTokio;
-    use crate::parser::nonblocking::SbusParserAsync;
     use super::*;
+    use crate::parser::nonblocking::SbusParserAsync;
+    use embedded_io_adapters::tokio_1::FromTokio;
 
     const TEST_PACKET: [u8; 25] = [
         0x0F, // HEAD_BYTE
@@ -162,15 +173,13 @@ mod tests {
     async fn test_valid_sbus_frame_async() {
         // Simulate a valid SBUS frame
         let data = [
-            0x0F,  // Header
+            0x0F, // Header
             0x00, 0x00, // Channel 1 (bits 0-10)
             0x00, 0x00, // Channel 2 (bits 0-10)
             // Ensure to simulate all 16 channels and the flags byte
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00,  // Flags
-            0x00   // Footer
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // Flags
+            0x00, // Footer
         ];
         let cursor = Cursor::new(data);
         let mut parser = SbusParserAsync::new(FromTokio::new(cursor));

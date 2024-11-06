@@ -1,7 +1,9 @@
 [package]
 name = "sbus-rs"
+authors = ["Ragarnoy <tiagolernould@gmail.com>"]
 version = "0.1.0"
 edition = "2021"
+rust-version = "1.82"
 
 [dependencies]
 heapless = { version = "0.8.0" }

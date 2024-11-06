@@ -1,5 +1,8 @@
 #![cfg_attr(not(test), no_std)]
 
+#[cfg(not(any(feature = "blocking", feature = "non-blocking")))]
+compile_error!("At least one of the blocking or non-blocking features must be enabled");
+
 #[cfg(feature = "blocking")]
 pub use parser::blocking;
 #[cfg(feature = "non-blocking")]

@@ -1,0 +1,67 @@
+# .github/workflows/benchmark.yml
+name: Benchmark
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  RUSTFLAGS: "-D warnings"
+
+jobs:
+  benchmark:
+    name: Run benchmarks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run benchmarks
+        run: |
+          cargo bench --workspace
+          cargo bench --workspace --features="async"
+
+      # Optional: Store benchmark results
+      - name: Store benchmark result
+        uses: actions/upload-artifact@v3
+        with:
+          name: benchmark-results
+          path: target/criterion/**/*.json
+          retention-days: 30
+
+  # Optional: Compare benchmarks against main branch
+  benchmark-compare:
+    name: Compare benchmarks
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch all history for all branches and tags
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Run benchmark comparison
+        run: |
+          # Run benchmarks on main branch
+          git checkout main
+          cargo bench --workspace -- --save-baseline main
+
+          # Run benchmarks on PR branch
+          git checkout ${{ github.event.pull_request.head.sha }}
+          cargo bench --workspace -- --baseline main

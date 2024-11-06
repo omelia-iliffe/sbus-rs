@@ -122,6 +122,19 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_invalid_footer_async() {
+        // Simulate a frame with an invalid header
+        let mut data = TEST_PACKET;
+        data[24] = 0x50; // Invalid footer
+
+        let cursor = Cursor::new(data);
+        let mut parser = SbusParserAsync::new(FromTokio::new(cursor));
+
+        let result = parser.read_frame().await;
+        assert!(matches!(result, Err(SbusError::InvalidFooter(0x50))));
+    }
+
+    #[tokio::test]
     async fn test_invalid_header_async() {
         // Simulate a frame with an invalid header
         let mut data = TEST_PACKET;
@@ -133,6 +146,4 @@ mod tests {
         let result = parser.read_frame().await;
         assert!(matches!(result, Err(SbusError::InvalidHeader(0x00))));
     }
-
-    // Additional async tests for invalid footer, buffer overflow, parse errors, etc., can be added here.
 }

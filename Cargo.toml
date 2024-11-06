@@ -1,17 +1,9 @@
 [package]
 name = "sbus-rs"
+authors = ["Ragarnoy <tiagolernould@gmail.com>"]
 version = "0.1.0"
 edition = "2021"
-
-# TODO: Check if this is the correct MSRV
-rust-version = "1.70"
-
-[features]
-default = ["blocking"]
-
-std = []
-blocking = ["dep:embedded-io", "embedded-io-adapters/std"]
-async = ["dep:embedded-io-async", "embedded-io-adapters/tokio-1"]
+rust-version = "1.82"
 
 [dependencies]
 heapless = { version = "0.8" }
@@ -23,3 +15,9 @@ tokio = { version = "1", features = ["full"] }
 embedded-io-adapters = { version = "0.6" }
 criterion = "0.5"
 hex-literal = "0.4"
+
+[features]
+blocking = ["dep:embedded-io", "embedded-io-adapters/std"]
+async = ["dep:embedded-io-async", "embedded-io-adapters/tokio-1"]
+default = ["blocking"]
+std = []

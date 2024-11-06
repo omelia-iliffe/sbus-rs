@@ -13,6 +13,7 @@ pub mod blocking;
 pub use blocking::SbusParser;
 
 pub struct Parser<R, M: Mode> {
+    #[allow(dead_code)]
     reader: R,
     _mode: PhantomData<M>,
 }

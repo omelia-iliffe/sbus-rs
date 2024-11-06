@@ -68,6 +68,7 @@ jobs:
         run: cargo generate-lockfile
       - name: cargo test
         run: cargo test --locked --all-features --all-targets
+# Need to add token first see issue #7
 #   coverage:
 #     # use llvm-cov to build and collect coverage and outputs in a format that
 #     # is compatible with codecov.io

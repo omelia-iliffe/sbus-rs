@@ -25,11 +25,6 @@ on:
     paths:
       - 'src/**/*.rs'
       - '!src/tests/**'
-      - '!src/**/*_test.rs'
-      - '!src/**/test_*.rs'
-      - '!src/**/*_tests.rs'
-      - '!src/**/tests.rs'
-      - '!src/**/testing.rs'
       - 'benches/**/*.rs'
       - 'Cargo.toml'
       - '.github/workflows/benchmark.yml'

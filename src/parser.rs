@@ -29,3 +29,5 @@ pub const SBUS_HEADER: u8 = 0x0F;
 pub const SBUS_FOOTER: u8 = 0x00;
 /// The SBus Frame length
 pub const SBUS_FRAME_LENGTH: usize = 25;
+/// The number of channels in a SBus Frame.
+pub const CHANNEL_COUNT: usize = 16;

@@ -1,3 +1,4 @@
+/// Error types for SBUS operations
 #[derive(Debug, PartialEq, Eq)]
 pub enum SbusError {
     /// Error reading from the reader

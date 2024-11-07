@@ -23,6 +23,12 @@ where
 }
 
 impl<R: Read> Parser<R, Async> {
+    /// Asynchronously reads the next complete SBUS frame
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(SbusPacket)` if a valid frame was read
+    /// * `Err(SbusError)` if an error occurred or the frame was invalid
     pub async fn read_frame(&mut self) -> Result<SbusPacket, SbusError> {
         let mut buffer = [0u8; SBUS_FRAME_LENGTH];
         self.reader
@@ -49,6 +55,12 @@ where
         Self { reader }
     }
 
+    /// Asynchronously reads the next complete SBUS frame
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(SbusPacket)` if a valid frame was read
+    /// * `Err(SbusError)` if an error occurred or the frame was invalid
     pub async fn read_frame(&mut self) -> Result<SbusPacket, SbusError> {
         let mut buffer = [0u8; SBUS_FRAME_LENGTH];
         self.reader

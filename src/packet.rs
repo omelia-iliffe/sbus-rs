@@ -1,5 +1,6 @@
 use crate::{channels_parsing, SbusError, SBUS_FOOTER, SBUS_FRAME_LENGTH, SBUS_HEADER};
 
+/// Represents a complete SBUS packet with channel data and flags
 #[derive(Debug, Clone, Copy)]
 pub struct SbusPacket {
     pub channels: [u16; 16],
@@ -7,6 +8,16 @@ pub struct SbusPacket {
 }
 
 impl SbusPacket {
+    /// Creates a new SbusPacket from a raw 25-byte SBUS frame
+    ///
+    /// # Arguments
+    ///
+    /// * `buffer` - A 25-byte array containing a complete SBUS frame
+    ///
+    /// # Returns
+    ///
+    /// * `Ok(SbusPacket)` if the frame is valid
+    /// * `Err(SbusError)` if the frame has invalid header or footer
     pub fn from_array(buffer: &[u8; SBUS_FRAME_LENGTH]) -> Result<Self, SbusError> {
         SbusPacket::validate_frame(buffer)?;
 
@@ -32,6 +43,7 @@ impl SbusPacket {
     }
 }
 
+/// Status flags contained in an SBUS frame
 #[derive(Debug, Clone, Copy)]
 pub struct Flags {
     pub d1: bool,

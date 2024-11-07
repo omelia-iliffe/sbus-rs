@@ -10,7 +10,7 @@ on:
         type: boolean
         default: false
   push:
-    branches: [ "main" ]
+    branches: [ "master" ]
     paths:
       - 'src/**/*.rs'
       # Only run on changes that could affect performance
@@ -21,7 +21,7 @@ on:
       - '.github/workflows/benchmark.yml'
   pull_request:
     types: [opened, synchronize, reopened]
-    branches: [ "main" ]
+    branches: [ "master" ]
     paths:
       - 'src/**/*.rs'
       - '!src/tests/**'
@@ -63,12 +63,12 @@ jobs:
             exit 0
           fi
 
-          # On main branch, only run if core functionality changed
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+          # On master branch, only run if core functionality changed
+          if [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
             git diff --name-only HEAD^ HEAD > changes.txt
           else
-            # On PR, compare with main branch
-            git diff --name-only origin/main...HEAD > changes.txt
+            # On PR, compare with master branch
+            git diff --name-only origin/master...HEAD > changes.txt
           fi
 
           # Check if any performance-critical files changed
@@ -100,16 +100,16 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      # Only run full benchmarks on main or if explicitly requested
+      # Only run full benchmarks on master or if explicitly requested
       - name: Run quick benchmarks
-        if: github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch'
+        if: github.ref != 'refs/heads/master' && github.event_name != 'workflow_dispatch'
         run: |
           # Run with fewer samples for PR checks
           cargo bench --workspace -- --warm-up-time 1 --measurement-time 2 --sample-size 10
           cargo bench --workspace --features="async" -- --warm-up-time 1 --measurement-time 2 --sample-size 10
 
       - name: Run full benchmarks
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        if: github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
         run: |
           cargo bench --workspace
           cargo bench --workspace --features="async"

@@ -133,21 +133,15 @@ fn create_streaming_buffer(frame_count: usize) -> Vec<u8> {
     buffer
 }
 
-
 fn bench_sync_frame_parsing(c: &mut Criterion) {
     let mut group = c.benchmark_group("sync/frame_parsing");
-
 
     for (name, channels) in SCENARIOS {
         let frame = create_test_frame(channels, 0);
         group.bench_with_input(
             BenchmarkId::new("sync/parse_frame", name),
             &frame,
-            |b, frame| {
-                b.iter(|| {
-                    black_box(SbusPacket::from_array(black_box(frame))).unwrap()
-                })
-            },
+            |b, frame| b.iter(|| black_box(SbusPacket::from_array(black_box(frame))).unwrap()),
         );
     }
 
@@ -188,9 +182,7 @@ fn bench_sync_frame_validation(c: &mut Criterion) {
     invalid_footer[SBUS_FRAME_LENGTH - 1] = 0xFF;
 
     group.bench_function("sync/validate/valid_frame", |b| {
-        b.iter(|| {
-            black_box(SbusPacket::from_array(black_box(&valid_frame))).unwrap()
-        })
+        b.iter(|| black_box(SbusPacket::from_array(black_box(&valid_frame))).unwrap())
     });
 
     group.bench_function("sync/validate/invalid_header", |b| {
@@ -210,9 +202,9 @@ fn bench_sync_frame_validation(c: &mut Criterion) {
 
 #[cfg(feature = "async")]
 fn bench_async_parser(c: &mut Criterion) {
-    use tokio::runtime::Runtime;
-    use sbus_rs::SbusParserAsync;
     use embedded_io_adapters::tokio_1::FromTokio;
+    use sbus_rs::SbusParserAsync;
+    use tokio::runtime::Runtime;
 
     let rt = Runtime::new().unwrap();
     let mut group = c.benchmark_group("async/streaming_parser");

@@ -12,6 +12,9 @@ license = "MIT"
 keywords = ["sbus", "embedded", "no_std", "parser", "protocol"]
 categories = ["embedded", "no-std", "parser-implementations"]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [dependencies]
 embedded-io = { version = "0.6", optional = true }
 embedded-io-async = { version = "0.6", optional = true }

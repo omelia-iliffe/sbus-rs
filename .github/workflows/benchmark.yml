@@ -44,7 +44,6 @@ env:
   RUSTFLAGS: "-D warnings"
 
 jobs:
-  # First check if benchmarks are needed
   check-changes:
     runs-on: ubuntu-latest
     outputs:
@@ -54,22 +53,50 @@ jobs:
         with:
           fetch-depth: 0  # Needed for git diff
 
+      - name: Fetch main branch
+        run: git fetch origin main
+
       - id: check
         name: Check if benchmarks are needed
         run: |
+          # Always echo the initial condition for debugging
+          echo "Event name: ${{ github.event_name }}"
+          echo "Force run: ${{ inputs.force-run }}"
+          echo "Current ref: ${{ github.ref }}"
+
+          # Check for manual trigger with force-run
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.force-run }}" == "true" ]]; then
-            echo "Manual run requested"
+            echo "Manual run requested with force-run=true"
             echo "should-run=true" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # On master branch, only run if core functionality changed
-          if [[ "${{ github.ref }}" == "refs/heads/master" ]]; then
-            git diff --name-only HEAD^ HEAD > changes.txt
+          # Initialize changes.txt
+          touch changes.txt
+
+          # Determine which files have changed
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "Checking changes on main branch..."
+            # For main branch, compare with the previous commit
+            if git rev-parse HEAD^ >/dev/null 2>&1; then
+              git diff --name-only HEAD^ HEAD > changes.txt
+            else
+              # First commit on main
+              git ls-files > changes.txt
+            fi
+          elif [[ -n "${{ github.event.pull_request }}" ]]; then
+            echo "Checking changes on PR..."
+            # For PR, compare with main branch
+            git diff --name-only origin/main...HEAD > changes.txt
           else
-            # On PR, compare with master branch
-            git diff --name-only origin/master...HEAD > changes.txt
+            echo "Checking changes on feature branch..."
+            # For other branches, compare with main
+            git diff --name-only origin/main...HEAD > changes.txt
           fi
+
+          # Debug: show detected changes
+          echo "Detected changes:"
+          cat changes.txt
 
           # Check if any performance-critical files changed
           if grep -q "src/lib.rs\|src/parser.rs\|src/packet.rs" changes.txt; then
@@ -85,6 +112,7 @@ jobs:
             echo "No performance-critical changes"
             echo "should-run=false" >> $GITHUB_OUTPUT
           fi
+
 
   benchmark:
     needs: check-changes

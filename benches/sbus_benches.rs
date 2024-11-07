@@ -9,7 +9,7 @@ fn create_test_frame(channels: &[u16; 16], flags: u8) -> [u8; SBUS_FRAME_LENGTH]
     buffer[0] = SBUS_HEADER;
     buffer[SBUS_FRAME_LENGTH - 1] = SBUS_FOOTER;
 
-    // Pack channels using the same logic from your tests
+    // Pack channels using the same logic from tests
     pack_channels(&mut buffer, channels);
     buffer[23] = flags;
 

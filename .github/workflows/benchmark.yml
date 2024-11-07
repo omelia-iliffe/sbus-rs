@@ -53,52 +53,53 @@ jobs:
         with:
           fetch-depth: 0  # Needed for git diff
 
-      - name: Fetch main branch
-        run: git fetch origin main
+      # Get default branch name
+      - name: Get default branch name
+        id: default-branch
+        run: |
+          DEFAULT_BRANCH=$(git remote show origin | grep 'HEAD branch' | cut -d' ' -f5)
+          echo "name=$DEFAULT_BRANCH" >> $GITHUB_OUTPUT
+
+      - name: Fetch all branches
+        run: |
+          git fetch --all
+          git branch -a
 
       - id: check
         name: Check if benchmarks are needed
         run: |
-          # Always echo the initial condition for debugging
-          echo "Event name: ${{ github.event_name }}"
-          echo "Force run: ${{ inputs.force-run }}"
-          echo "Current ref: ${{ github.ref }}"
+          DEFAULT_BRANCH="${{ steps.default-branch.outputs.name }}"
+          echo "Default branch is: $DEFAULT_BRANCH"
+          echo "Current ref is: ${{ github.ref }}"
+          echo "Event type is: ${{ github.event_name }}"
 
-          # Check for manual trigger with force-run
+          # Manual trigger check
           if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.force-run }}" == "true" ]]; then
             echo "Manual run requested with force-run=true"
             echo "should-run=true" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # Initialize changes.txt
-          touch changes.txt
-
-          # Determine which files have changed
-          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo "Checking changes on main branch..."
-            # For main branch, compare with the previous commit
+          # Get list of changed files
+          if [[ "${{ github.ref }}" == "refs/heads/$DEFAULT_BRANCH" ]]; then
+            echo "On default branch, comparing with previous commit"
             if git rev-parse HEAD^ >/dev/null 2>&1; then
               git diff --name-only HEAD^ HEAD > changes.txt
             else
-              # First commit on main
               git ls-files > changes.txt
             fi
-          elif [[ -n "${{ github.event.pull_request }}" ]]; then
-            echo "Checking changes on PR..."
-            # For PR, compare with main branch
-            git diff --name-only origin/main...HEAD > changes.txt
+          elif [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "On PR, comparing with default branch"
+            git diff --name-only origin/$DEFAULT_BRANCH... > changes.txt
           else
-            echo "Checking changes on feature branch..."
-            # For other branches, compare with main
-            git diff --name-only origin/main...HEAD > changes.txt
+            echo "On feature branch, comparing with default branch"
+            git diff --name-only origin/$DEFAULT_BRANCH... > changes.txt
           fi
 
-          # Debug: show detected changes
-          echo "Detected changes:"
+          echo "Changed files:"
           cat changes.txt
 
-          # Check if any performance-critical files changed
+          # Check for performance-critical changes
           if grep -q "src/lib.rs\|src/parser.rs\|src/packet.rs" changes.txt; then
             echo "Core functionality changed"
             echo "should-run=true" >> $GITHUB_OUTPUT
@@ -112,7 +113,6 @@ jobs:
             echo "No performance-critical changes"
             echo "should-run=false" >> $GITHUB_OUTPUT
           fi
-
 
   benchmark:
     needs: check-changes

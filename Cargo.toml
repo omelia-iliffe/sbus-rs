@@ -33,6 +33,9 @@ async = ["dep:embedded-io-async", "embedded-io-adapters/tokio-1"]
 default = ["blocking"]
 std = []
 
+[lib]
+bench = false
+
 [[bench]]
 name = "sbus_benches"
 harness = false

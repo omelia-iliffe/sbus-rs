@@ -1,6 +1,4 @@
-# .github/workflows/benchmark.yml
 name: Benchmark
-
 on:
   workflow_dispatch:  # Manual triggering with options
     inputs:
@@ -148,19 +146,3 @@ jobs:
           name: benchmark-results
           path: target/criterion/**/*.json
           retention-days: 30
-
-      # Optional: Add a step to comment benchmark results on PR
-      - name: Comment PR
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const fs = require('fs');
-            // Read and parse benchmark results
-            // Add logic to format and post results as comment
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: 'Benchmark results: ...' // Format your results here
-            });

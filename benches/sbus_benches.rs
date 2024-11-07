@@ -1,19 +1,22 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use embedded_io_adapters::std::FromStd;
-use sbus_rs::{SbusPacket, SbusParser, SBUS_FOOTER, SBUS_FRAME_LENGTH, SBUS_HEADER};
+use sbus_rs::{
+    pack_channels, SbusPacket, SbusParser, CHANNEL_COUNT, CHANNEL_MAX, SBUS_FOOTER,
+    SBUS_FRAME_LENGTH, SBUS_HEADER,
+};
 use std::io::Cursor;
 
-const fn generate_alternating() -> [u16; 16] {
+const fn generate_alternating() -> [u16; CHANNEL_COUNT] {
     let mut arr = [0u16; 16];
     let mut i = 0;
     while i < 16 {
-        arr[i] = if i % 2 == 0 { 0u16 } else { 2047u16 };
+        arr[i] = if i % 2 == 0 { 0u16 } else { CHANNEL_MAX };
         i += 1;
     }
     arr
 }
 
-const fn generate_ascending() -> [u16; 16] {
+const fn generate_ascending() -> [u16; CHANNEL_COUNT] {
     let mut arr = [0u16; 16];
     let mut i = 0;
     while i < 16 {
@@ -23,92 +26,13 @@ const fn generate_ascending() -> [u16; 16] {
     arr
 }
 
-const SCENARIOS: &[(&str, [u16; 16])] = &[
+const SCENARIOS: &[(&str, [u16; CHANNEL_COUNT])] = &[
     ("all_min", [0u16; 16]),
-    ("all_max", [2047u16; 16]),
-    ("all_mid", [1024u16; 16]),
+    ("all_max", [CHANNEL_MAX; 16]),
+    ("all_mid", [CHANNEL_MAX.div_ceil(2); 16]),
     ("alternating", generate_alternating()),
     ("ascending", generate_ascending()),
 ];
-
-fn pack_channels(buffer: &mut [u8; SBUS_FRAME_LENGTH], channels: &[u16; 16]) {
-    buffer
-        .iter_mut()
-        .take(SBUS_FRAME_LENGTH - 1)
-        .skip(1)
-        .for_each(|x| *x = 0);
-
-    // Pack channels using the exact inverse of the parsing logic
-    let ch = channels;
-
-    // Channel 1 - Bytes 1-2
-    buffer[1] = (ch[0] & 0xFF) as u8;
-    buffer[2] = ((ch[0] >> 8) & 0x07) as u8;
-
-    // Channel 2 - Bytes 2-3
-    buffer[2] |= ((ch[1] & 0x1F) << 3) as u8;
-    buffer[3] = ((ch[1] >> 5) & 0x3F) as u8;
-
-    // Channel 3 - Bytes 3-5
-    buffer[3] |= ((ch[2] & 0x03) << 6) as u8;
-    buffer[4] = ((ch[2] >> 2) & 0xFF) as u8;
-    buffer[5] = ((ch[2] >> 10) & 0x01) as u8;
-
-    // Channel 4 - Bytes 5-6
-    buffer[5] |= ((ch[3] & 0x7F) << 1) as u8;
-    buffer[6] = ((ch[3] >> 7) & 0x0F) as u8;
-
-    // Channel 5 - Bytes 6-7
-    buffer[6] |= ((ch[4] & 0x0F) << 4) as u8;
-    buffer[7] = ((ch[4] >> 4) & 0x7F) as u8;
-
-    // Channel 6 - Bytes 7-9
-    buffer[7] |= ((ch[5] & 0x01) << 7) as u8;
-    buffer[8] = ((ch[5] >> 1) & 0xFF) as u8;
-    buffer[9] = ((ch[5] >> 9) & 0x03) as u8;
-
-    // Channel 7 - Bytes 9-10
-    buffer[9] |= ((ch[6] & 0x3F) << 2) as u8;
-    buffer[10] = ((ch[6] >> 6) & 0x1F) as u8;
-
-    // Channel 8 - Bytes 10-11
-    buffer[10] |= ((ch[7] & 0x07) << 5) as u8;
-    buffer[11] = ((ch[7] >> 3) & 0xFF) as u8;
-
-    // Channel 9 - Bytes 12-13
-    buffer[12] = (ch[8] & 0xFF) as u8;
-    buffer[13] = ((ch[8] >> 8) & 0x07) as u8;
-
-    // Channel 10 - Bytes 13-14
-    buffer[13] |= ((ch[9] & 0x1F) << 3) as u8;
-    buffer[14] = ((ch[9] >> 5) & 0x3F) as u8;
-
-    // Channel 11 - Bytes 14-16
-    buffer[14] |= ((ch[10] & 0x03) << 6) as u8;
-    buffer[15] = ((ch[10] >> 2) & 0xFF) as u8;
-    buffer[16] = ((ch[10] >> 10) & 0x01) as u8;
-
-    // Channel 12 - Bytes 16-17
-    buffer[16] |= ((ch[11] & 0x7F) << 1) as u8;
-    buffer[17] = ((ch[11] >> 7) & 0x0F) as u8;
-
-    // Channel 13 - Bytes 17-18
-    buffer[17] |= ((ch[12] & 0x0F) << 4) as u8;
-    buffer[18] = ((ch[12] >> 4) & 0x7F) as u8;
-
-    // Channel 14 - Bytes 18-20
-    buffer[18] |= ((ch[13] & 0x01) << 7) as u8;
-    buffer[19] = ((ch[13] >> 1) & 0xFF) as u8;
-    buffer[20] = ((ch[13] >> 9) & 0x03) as u8;
-
-    // Channel 15 - Bytes 20-21
-    buffer[20] |= ((ch[14] & 0x3F) << 2) as u8;
-    buffer[21] = ((ch[14] >> 6) & 0x1F) as u8;
-
-    // Channel 16 - Bytes 21-22
-    buffer[21] |= ((ch[15] & 0x07) << 5) as u8;
-    buffer[22] = ((ch[15] >> 3) & 0xFF) as u8;
-}
 
 fn create_test_frame(channels: &[u16; 16], flags: u8) -> [u8; SBUS_FRAME_LENGTH] {
     let mut buffer = [0u8; SBUS_FRAME_LENGTH];

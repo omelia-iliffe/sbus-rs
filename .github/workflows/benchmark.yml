@@ -1,6 +1,7 @@
 name: Benchmark
 
 on:
+  workflow_dispatch:  # Allow manual triggering
   push:
     branches: [ "main" ]
     paths:

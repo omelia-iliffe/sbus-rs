@@ -68,6 +68,21 @@ jobs:
         run: cargo generate-lockfile
       - name: cargo test
         run: cargo test --locked --all-features --all-targets
+  regression:
+    runs-on: ubuntu-latest
+    name: regression / stable
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install stable toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+
+      - name: Check proptest regressions
+        run: |
+          cargo test --all-features -- --include-ignored
 # Need to add token first see issue #7
 #   coverage:
 #     # use llvm-cov to build and collect coverage and outputs in a format that

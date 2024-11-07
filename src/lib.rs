@@ -75,7 +75,7 @@ pub const fn channels_parsing(buffer: &[u8; SBUS_FRAME_LENGTH]) -> [u16; CHANNEL
 }
 
 #[inline(always)]
-pub const fn pack_channels(buffer: &mut [u8; SBUS_FRAME_LENGTH], channels: &[u16; CHANNEL_COUNT]) {
+pub fn pack_channels(buffer: &mut [u8; SBUS_FRAME_LENGTH], channels: &[u16; CHANNEL_COUNT]) {
     // Clear the buffer first (except header and footer)
     let mut i = 1;
     while i < SBUS_FRAME_LENGTH - 1 {

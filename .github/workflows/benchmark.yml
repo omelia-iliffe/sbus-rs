@@ -2,9 +2,20 @@ name: Benchmark
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
+    paths:
+      - '**/*.rs'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/benchmark.yml'
   pull_request:
-    branches: [ main ]
+    types: [opened, synchronize, reopened]
+    branches: [ "main" ]
+    paths:
+      - '**/*.rs'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/benchmark.yml'
 
 permissions:
   contents: read

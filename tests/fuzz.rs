@@ -1,6 +1,6 @@
-use crate::{SbusError, SbusPacket, SBUS_FOOTER, SBUS_FRAME_LENGTH, SBUS_HEADER};
 use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
+use sbus_rs::{SbusError, SbusPacket, SBUS_FOOTER, SBUS_FRAME_LENGTH, SBUS_HEADER};
 
 #[derive(Debug, Arbitrary)]
 struct FuzzedSbusFrame {

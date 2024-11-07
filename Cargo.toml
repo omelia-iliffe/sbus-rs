@@ -1,9 +1,16 @@
 [package]
 name = "sbus-rs"
-authors = ["Ragarnoy <tiagolernould@gmail.com>"]
 version = "0.1.0"
+authors = ["Ragarnoy <tiagolernould@gmail.com>"]
 edition = "2021"
 rust-version = "1.82"
+description = "A no_std compatible SBUS protocol parser for embedded systems"
+repository = "https://github.com/Ragarnoy/sbus-rs"
+documentation = "https://docs.rs/sbus-rs"
+readme = "README.md"
+license = "MIT"
+keywords = ["sbus", "embedded", "no_std", "parser", "protocol"]
+categories = ["embedded", "no-std", "parser-implementations"]
 
 [dependencies]
 embedded-io = { version = "0.6", optional = true }

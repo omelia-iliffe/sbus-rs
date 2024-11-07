@@ -1,6 +1,8 @@
 use arbitrary::Arbitrary;
 use libfuzzer_sys::fuzz_target;
-use sbus_rs::{pack_channels, SbusError, SbusPacket, SBUS_FOOTER, SBUS_FRAME_LENGTH, SBUS_HEADER};
+use sbus_rs::{
+    pack_channels, SbusError, SbusPacket, CHANNEL_MAX, SBUS_FOOTER, SBUS_FRAME_LENGTH, SBUS_HEADER,
+};
 
 #[derive(Debug, Arbitrary)]
 struct FuzzedSbusFrame {
@@ -98,7 +100,7 @@ proptest! {
     #[ignore]
     fn test_channel_value_boundaries(
         channel_idx in 0usize..16,
-        value in 0u16..=2047u16
+        value in 0u16..=CHANNEL_MAX
     ) {
         let mut buffer = [0u8; SBUS_FRAME_LENGTH];
         buffer[0] = SBUS_HEADER;

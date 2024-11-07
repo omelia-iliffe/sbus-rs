@@ -69,6 +69,7 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::CHANNEL_MAX;
     use embedded_io_adapters::std::FromStd;
     use std::io::Cursor;
 
@@ -187,9 +188,9 @@ mod tests {
         data[1] = 0;
         data[2] = 0;
         // Channel 2 set to 2047, needs to correctly span bytes 2, 3, and 4
-        data[2] |= (2047 << 3) as u8; // Start from bit 3 of byte 2
-        data[3] = ((2047 >> 5) & 0xFF) as u8; // Next full byte
-        data[4] = ((2047 >> 5) & 0x07) as u8; // Last few bits that fit into byte 4
+        data[2] |= (CHANNEL_MAX << 3) as u8; // Start from bit 3 of byte 2
+        data[3] = ((CHANNEL_MAX >> 5) & 0xFF) as u8; // Next full byte
+        data[4] = ((CHANNEL_MAX >> 5) & 0x07) as u8; // Last few bits that fit into byte 4
         data[24] = 0x00; // Footer
 
         let cursor = Cursor::new(data);
@@ -199,6 +200,6 @@ mod tests {
         assert!(result.is_ok());
         let packet = result.unwrap();
         assert_eq!(packet.channels[0], 0); // Channel 1 should be 0
-        assert_eq!(packet.channels[1], 2047); // Channel 2 should be 2047
+        assert_eq!(packet.channels[1], CHANNEL_MAX); // Channel 2 should be 2047
     }
 }

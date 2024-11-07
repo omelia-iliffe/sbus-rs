@@ -51,26 +51,26 @@ mod parser;
 #[inline(always)]
 pub const fn channels_parsing(buffer: &[u8; SBUS_FRAME_LENGTH]) -> [u16; CHANNEL_COUNT] {
     [
-        ((buffer[1] as u16) | ((buffer[2] as u16) << 8)) & 0x07FF,
-        (((buffer[2] as u16) >> 3) | ((buffer[3] as u16) << 5)) & 0x07FF,
+        ((buffer[1] as u16) | ((buffer[2] as u16) << 8)) & CHANNEL_MAX,
+        (((buffer[2] as u16) >> 3) | ((buffer[3] as u16) << 5)) & CHANNEL_MAX,
         (((buffer[3] as u16) >> 6) | ((buffer[4] as u16) << 2) | ((buffer[5] as u16) << 10))
-            & 0x07FF,
-        (((buffer[5] as u16) >> 1) | ((buffer[6] as u16) << 7)) & 0x07FF,
-        (((buffer[6] as u16) >> 4) | ((buffer[7] as u16) << 4)) & 0x07FF,
+            & CHANNEL_MAX,
+        (((buffer[5] as u16) >> 1) | ((buffer[6] as u16) << 7)) & CHANNEL_MAX,
+        (((buffer[6] as u16) >> 4) | ((buffer[7] as u16) << 4)) & CHANNEL_MAX,
         (((buffer[7] as u16) >> 7) | ((buffer[8] as u16) << 1) | ((buffer[9] as u16) << 9))
-            & 0x07FF,
-        (((buffer[9] as u16) >> 2) | ((buffer[10] as u16) << 6)) & 0x07FF,
-        (((buffer[10] as u16) >> 5) | ((buffer[11] as u16) << 3)) & 0x07FF,
-        ((buffer[12] as u16) | ((buffer[13] as u16) << 8)) & 0x07FF,
-        (((buffer[13] as u16) >> 3) | ((buffer[14] as u16) << 5)) & 0x07FF,
+            & CHANNEL_MAX,
+        (((buffer[9] as u16) >> 2) | ((buffer[10] as u16) << 6)) & CHANNEL_MAX,
+        (((buffer[10] as u16) >> 5) | ((buffer[11] as u16) << 3)) & CHANNEL_MAX,
+        ((buffer[12] as u16) | ((buffer[13] as u16) << 8)) & CHANNEL_MAX,
+        (((buffer[13] as u16) >> 3) | ((buffer[14] as u16) << 5)) & CHANNEL_MAX,
         (((buffer[14] as u16) >> 6) | ((buffer[15] as u16) << 2) | ((buffer[16] as u16) << 10))
-            & 0x07FF,
-        (((buffer[16] as u16) >> 1) | ((buffer[17] as u16) << 7)) & 0x07FF,
-        (((buffer[17] as u16) >> 4) | ((buffer[18] as u16) << 4)) & 0x07FF,
+            & CHANNEL_MAX,
+        (((buffer[16] as u16) >> 1) | ((buffer[17] as u16) << 7)) & CHANNEL_MAX,
+        (((buffer[17] as u16) >> 4) | ((buffer[18] as u16) << 4)) & CHANNEL_MAX,
         (((buffer[18] as u16) >> 7) | ((buffer[19] as u16) << 1) | ((buffer[20] as u16) << 9))
-            & 0x07FF,
-        (((buffer[20] as u16) >> 2) | ((buffer[21] as u16) << 6)) & 0x07FF,
-        (((buffer[21] as u16) >> 5) | ((buffer[22] as u16) << 3)) & 0x07FF,
+            & CHANNEL_MAX,
+        (((buffer[20] as u16) >> 2) | ((buffer[21] as u16) << 6)) & CHANNEL_MAX,
+        (((buffer[21] as u16) >> 5) | ((buffer[22] as u16) << 3)) & CHANNEL_MAX,
     ]
 }
 
@@ -153,4 +153,124 @@ pub fn pack_channels(buffer: &mut [u8; SBUS_FRAME_LENGTH], channels: &[u16; CHAN
     // Channel 16 - Bytes 21-22
     buffer[21] |= ((ch[15] & 0x07) << 5) as u8;
     buffer[22] = ((ch[15] >> 3) & 0xFF) as u8;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_individual_channel_isolation() {
+        for channel in 0..CHANNEL_COUNT {
+            let mut channels = [0u16; CHANNEL_COUNT];
+            let test_value = CHANNEL_MAX; // Max value
+            channels[channel] = test_value;
+
+            let mut buffer = [0u8; SBUS_FRAME_LENGTH];
+            buffer[0] = SBUS_HEADER;
+            buffer[SBUS_FRAME_LENGTH - 1] = SBUS_FOOTER;
+
+            pack_channels(&mut buffer, &channels);
+            let decoded = channels_parsing(&buffer);
+
+            assert_eq!(
+                decoded[channel], test_value,
+                "Channel {} failed to preserve max value",
+                channel
+            );
+
+            // Verify other channels remained zero
+            for (i, &value) in decoded.iter().enumerate() {
+                if i != channel {
+                    assert_eq!(
+                        value, 0,
+                        "Channel {} was affected while packing channel {}",
+                        i, channel
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_parse_pack_inverse_property() {
+        let test_patterns = [
+            // Pattern 1: Alternating max and min
+            {
+                let mut arr = [0u16; CHANNEL_COUNT];
+                arr.iter_mut()
+                    .enumerate()
+                    .for_each(|(i, val)| *val = if i % 2 == 0 { 0 } else { CHANNEL_MAX });
+                arr
+            },
+            // Pattern 2: Ascending values
+            {
+                let mut arr = [0u16; CHANNEL_COUNT];
+                arr.iter_mut()
+                    .enumerate()
+                    .for_each(|(i, val)| *val = ((i as u16 * CHANNEL_MAX) / 15).min(CHANNEL_MAX));
+                arr
+            },
+        ];
+
+        for pattern in &test_patterns {
+            let mut buffer = [0u8; SBUS_FRAME_LENGTH];
+            buffer[0] = SBUS_HEADER;
+            buffer[SBUS_FRAME_LENGTH - 1] = SBUS_FOOTER;
+
+            pack_channels(&mut buffer, pattern);
+            let decoded = channels_parsing(&buffer);
+
+            assert_eq!(
+                &decoded, pattern,
+                "Pattern was not preserved through pack/parse cycle"
+            );
+        }
+    }
+
+    #[test]
+    fn test_adjacent_channel_isolation() {
+        // Test each pair of adjacent channels
+        for i in 0..15 {
+            let mut channels = [0u16; CHANNEL_COUNT];
+            channels[i] = CHANNEL_MAX; // Set first channel to max
+            channels[i + 1] = CHANNEL_MAX; // Set adjacent channel to max
+
+            let mut buffer = [0u8; SBUS_FRAME_LENGTH];
+            buffer[0] = SBUS_HEADER;
+            buffer[SBUS_FRAME_LENGTH - 1] = SBUS_FOOTER;
+
+            pack_channels(&mut buffer, &channels);
+            let decoded = channels_parsing(&buffer);
+
+            assert_eq!(
+                decoded[i], CHANNEL_MAX,
+                "Channel {} lost max value when adjacent to max value",
+                i
+            );
+            assert_eq!(
+                decoded[i + 1],
+                CHANNEL_MAX,
+                "Channel {} lost max value when adjacent to max value",
+                i + 1
+            );
+
+            // Check other channels remained zero
+            // Check other channels remained zero
+            decoded
+                .iter()
+                .enumerate()
+                .filter(|(j, _)| *j != i && *j != i + 1)
+                .for_each(|(j, &val)| {
+                    assert_eq!(
+                        val,
+                        0,
+                        "Channel {} was affected while testing adjacent channels {},{}",
+                        j,
+                        i,
+                        i + 1
+                    );
+                });
+        }
+    }
 }

@@ -31,3 +31,5 @@ pub const SBUS_FOOTER: u8 = 0x00;
 pub const SBUS_FRAME_LENGTH: usize = 25;
 /// The number of channels in a SBus Frame.
 pub const CHANNEL_COUNT: usize = 16;
+/// The maximum value of a channel.
+pub const CHANNEL_MAX: u16 = 0x07FF; // 11 bits max = 2047

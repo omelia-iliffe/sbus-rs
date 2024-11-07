@@ -1,8 +1,8 @@
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use embedded_io_adapters::std::FromStd;
 use sbus_rs::{
-    pack_channels, SbusPacket, SbusParser, CHANNEL_COUNT, SBUS_FOOTER, SBUS_FRAME_LENGTH,
-    SBUS_HEADER,
+    pack_channels, SbusPacket, SbusParser, CHANNEL_COUNT, CHANNEL_MAX, SBUS_FOOTER,
+    SBUS_FRAME_LENGTH, SBUS_HEADER,
 };
 use std::io::Cursor;
 
@@ -10,7 +10,7 @@ const fn generate_alternating() -> [u16; CHANNEL_COUNT] {
     let mut arr = [0u16; 16];
     let mut i = 0;
     while i < 16 {
-        arr[i] = if i % 2 == 0 { 0u16 } else { 2047u16 };
+        arr[i] = if i % 2 == 0 { 0u16 } else { CHANNEL_MAX };
         i += 1;
     }
     arr
@@ -28,8 +28,8 @@ const fn generate_ascending() -> [u16; CHANNEL_COUNT] {
 
 const SCENARIOS: &[(&str, [u16; CHANNEL_COUNT])] = &[
     ("all_min", [0u16; 16]),
-    ("all_max", [2047u16; 16]),
-    ("all_mid", [1024u16; 16]),
+    ("all_max", [CHANNEL_MAX; 16]),
+    ("all_mid", [CHANNEL_MAX.div_ceil(2); 16]),
     ("alternating", generate_alternating()),
     ("ascending", generate_ascending()),
 ];

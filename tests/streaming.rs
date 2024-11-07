@@ -1,5 +1,5 @@
-use crate::*;
 use embedded_io_adapters::std::FromStd;
+use sbus_rs::*;
 use std::io::Cursor;
 
 #[test]

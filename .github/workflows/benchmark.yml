@@ -1,32 +1,94 @@
+# .github/workflows/benchmark.yml
 name: Benchmark
 
 on:
-  workflow_dispatch:  # Allow manual triggering
+  workflow_dispatch:  # Manual triggering with options
+    inputs:
+      force-run:
+        description: 'Force benchmarks to run'
+        required: true
+        type: boolean
+        default: false
   push:
     branches: [ "main" ]
     paths:
-      - '**/*.rs'
+      - 'src/**/*.rs'
+      # Only run on changes that could affect performance
+      - '!src/tests/**'
+      - 'benches/**/*.rs'
+      # Only consider direct dependency changes
       - 'Cargo.toml'
-      - 'Cargo.lock'
       - '.github/workflows/benchmark.yml'
   pull_request:
     types: [opened, synchronize, reopened]
     branches: [ "main" ]
     paths:
-      - '**/*.rs'
+      - 'src/**/*.rs'
+      - '!src/tests/**'
+      - 'benches/**/*.rs'
       - 'Cargo.toml'
-      - 'Cargo.lock'
       - '.github/workflows/benchmark.yml'
+
+# Add concurrency to cancel outdated runs
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
+  # Add required permissions for commenting on PRs if we want to post results
+  pull-requests: write
 
 env:
   CARGO_TERM_COLOR: always
   RUSTFLAGS: "-D warnings"
 
 jobs:
+  # First check if benchmarks are needed
+  check-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.check.outputs.should-run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Needed for git diff
+
+      - id: check
+        name: Check if benchmarks are needed
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.force-run }}" == "true" ]]; then
+            echo "Manual run requested"
+            echo "should-run=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # On main branch, only run if core functionality changed
+          if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            git diff --name-only HEAD^ HEAD > changes.txt
+          else
+            # On PR, compare with main branch
+            git diff --name-only origin/main...HEAD > changes.txt
+          fi
+
+          # Check if any performance-critical files changed
+          if grep -q "src/lib.rs\|src/parser.rs\|src/packet.rs" changes.txt; then
+            echo "Core functionality changed"
+            echo "should-run=true" >> $GITHUB_OUTPUT
+          elif grep -q "^benches/" changes.txt; then
+            echo "Benchmark code changed"
+            echo "should-run=true" >> $GITHUB_OUTPUT
+          elif grep -q "Cargo.toml" changes.txt && grep -q "^\[dependencies\]" Cargo.toml; then
+            echo "Dependencies changed"
+            echo "should-run=true" >> $GITHUB_OUTPUT
+          else
+            echo "No performance-critical changes"
+            echo "should-run=false" >> $GITHUB_OUTPUT
+          fi
+
   benchmark:
+    needs: check-changes
+    if: needs.check-changes.outputs.should-run == 'true'
     name: Run benchmarks
     runs-on: ubuntu-latest
     steps:
@@ -38,12 +100,20 @@ jobs:
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
 
-      - name: Run benchmarks
+      # Only run full benchmarks on main or if explicitly requested
+      - name: Run quick benchmarks
+        if: github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch'
+        run: |
+          # Run with fewer samples for PR checks
+          cargo bench --workspace -- --warm-up-time 1 --measurement-time 2 --sample-size 10
+          cargo bench --workspace --features="async" -- --warm-up-time 1 --measurement-time 2 --sample-size 10
+
+      - name: Run full benchmarks
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         run: |
           cargo bench --workspace
           cargo bench --workspace --features="async"
 
-      # Optional: Store benchmark results
       - name: Store benchmark result
         uses: actions/upload-artifact@v3
         with:
@@ -51,28 +121,18 @@ jobs:
           path: target/criterion/**/*.json
           retention-days: 30
 
-  # Optional: Compare benchmarks against main branch
-  benchmark-compare:
-    name: Compare benchmarks
-    runs-on: ubuntu-latest
-    if: github.event_name == 'pull_request'
-    steps:
-      - uses: actions/checkout@v4
+      # Optional: Add a step to comment benchmark results on PR
+      - name: Comment PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
         with:
-          fetch-depth: 0  # Fetch all history for all branches and tags
-
-      - name: Install stable toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
-
-      - name: Run benchmark comparison
-        run: |
-          # Run benchmarks on main branch
-          git checkout main
-          cargo bench --workspace -- --save-baseline main
-
-          # Run benchmarks on PR branch
-          git checkout ${{ github.event.pull_request.head.sha }}
-          cargo bench --workspace -- --baseline main
+          script: |
+            const fs = require('fs');
+            // Read and parse benchmark results
+            // Add logic to format and post results as comment
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: 'Benchmark results: ...' // Format your results here
+            });

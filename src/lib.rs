@@ -255,8 +255,6 @@ mod tests {
                 i + 1
             );
 
-            // Check other channels remained zero
-            // Check other channels remained zero
             decoded
                 .iter()
                 .enumerate()

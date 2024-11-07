@@ -1,4 +1,3 @@
-# .github/workflows/benchmark.yml
 name: Benchmark
 
 on:

@@ -148,7 +148,7 @@ fn bench_async_parser(c: &mut Criterion) {
     group.finish();
 }
 
-Pack channels function from tests
+// Pack channels function from tests
 fn pack_channels(buffer: &mut [u8; SBUS_FRAME_LENGTH], channels: &[u16; 16]) {
     buffer
         .iter_mut()

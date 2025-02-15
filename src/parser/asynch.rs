@@ -6,6 +6,8 @@ use crate::{
     parser::{Parser, SBUS_FRAME_LENGTH},
 };
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "defmt-03", derive(defmt::Format))]
 pub struct Async {}
 impl super::Mode for Async {}
 impl super::Sealed for Async {}

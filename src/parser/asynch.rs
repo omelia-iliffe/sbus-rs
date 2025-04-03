@@ -72,6 +72,10 @@ where
 
         SbusPacket::from_array(&buffer)
     }
+
+    pub fn inner_mut(&mut self) -> &mut R {
+        &mut self.reader
+    }
 }
 
 #[cfg(test)]

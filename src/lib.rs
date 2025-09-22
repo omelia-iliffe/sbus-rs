@@ -41,11 +41,9 @@
 //! - 22 bytes of channel data (16 channels, 11 bits each)
 //! - 1 byte of flags
 //! - End byte (0x00)
-#![no_std]
-
+#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(docsrs, feature(doc_auto_cfg))]
-#[cfg(feature = "std")]
-extern crate std;
+
 #[cfg(all(feature = "async", feature = "blocking"))]
 compile_error!("Can't have both async and blocking enabled");
 
